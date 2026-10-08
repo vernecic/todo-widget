@@ -1,4 +1,4 @@
-import type { AppData, CheckIn, Counter, Project, Series, Session, Settings, Tally, Task } from './types'
+import type { AppData, CheckIn, Counter, Note, Project, Series, Session, Settings, Tally, Task } from './types'
 
 /**
  * Where app data lives. Today it is a local JSON file; a Supabase adapter can
@@ -30,6 +30,7 @@ export function emptyData(): AppData {
     tallies: [],
     checkIns: [],
     sessions: [],
+    notes: [],
     settings: {
       theme: dark ? 'dark' : 'light',
       doneCollapsed: false,
@@ -51,6 +52,7 @@ interface RawData {
   tallies?: (Omit<Tally, 'values'> & { values: Tally['values'] | number[] })[]
   checkIns?: Partial<CheckIn>[]
   sessions?: Session[]
+  notes?: Note[]
   settings?: Partial<Settings>
 }
 
@@ -94,6 +96,7 @@ function normalize(raw: RawData): AppData {
     })),
     checkIns: (raw.checkIns ?? []).map((c) => ({ taskId: null, ...c }) as CheckIn),
     sessions: raw.sessions ?? [],
+    notes: raw.notes ?? [],
     settings: { ...base.settings, ...raw.settings }
   }
 }

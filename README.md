@@ -22,7 +22,7 @@ npm run icon       # regenerate build/icon.png and resources/icon.png
 - Status is To do, Doing, Paused or Done. Doing means the task's timer is running; only one task runs at a time, so starting another pauses the current one. Start or pause with the ▶ / ⏸ button next to the checkbox, the Status field, or the right-click menu. Tracked time shows on the task, and a bar under the title bar shows what is running. Ticking a task done stops its timer.
 - The timer pauses by itself when the screen locks, the PC sleeps or Todo closes. A toast then offers **Keep time**, which resumes it as if it never stopped.
 - Every hour (weekdays 08:00 to 20:00, other times only while a timer runs), in the first 10 minutes of the hour, the app asks "What are you doing?". Pick one of today's tasks, or Other with an optional note. The answer sets what the timer runs from now on; Other runs an "Other" timer. Left unanswered for 5 minutes, the timer pauses from when the prompt appeared.
-- Notes (notebook icon in the title bar) lists every answer by day as `11:00 Doing: …`. Click an entry to edit it, hover to delete it, or use "Add entry" to log something now.
+- Notes (notebook icon in the title bar) has two tabs. **Notepad**: free-form notes; the first line is the title, they save as you type, and an untouched new note disappears when you leave it. **Check-ins**: every hourly answer by day as `11:00 Doing: …`; click an entry to edit it, hover to delete it, or use "Add entry" to log something now.
 - Drag the grip to reorder. Drop a task on ◀ or ▶ to move it a day.
 - Right-click a task for move and delete. `Del` deletes the focused task.
 - Click the colored stripe to change priority.

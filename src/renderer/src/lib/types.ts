@@ -97,6 +97,14 @@ export interface CheckIn {
   updatedAt: string
 }
 
+/** A notepad page. The first line is its title. */
+export interface Note {
+  id: string
+  text: string
+  createdAt: string
+  updatedAt: string
+}
+
 /**
  * A stretch of tracked time. `end` is null while the timer runs; only one
  * session runs at a time. The task's title, project and list are copied in
@@ -148,5 +156,6 @@ export interface AppData {
   tallies: Tally[]
   checkIns: CheckIn[]
   sessions: Session[]
+  notes: Note[]
   settings: Settings
 }

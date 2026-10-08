@@ -42,7 +42,7 @@ export function TitleBar(props: {
         <IconButton title="Search all tasks" active={props.searching} onClick={props.onSearch}>
           <Search />
         </IconButton>
-        <IconButton title="Notes: what you were doing each hour" active={props.notesOpen} onClick={props.onNotes}>
+        <IconButton title="Notes" active={props.notesOpen} onClick={props.onNotes}>
           <NotebookPen />
         </IconButton>
         <IconButton title="Projects" onClick={props.onProjects}>

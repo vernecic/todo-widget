@@ -548,6 +548,32 @@ export function deleteCheckIn(id: string): void {
   })
 }
 
+// ---------- notepad ----------
+
+export function addNote(): string {
+  const id = uid()
+  mutate((d) => {
+    const now = stamp()
+    d.notes.push({ id, text: '', createdAt: now, updatedAt: now })
+  })
+  return id
+}
+
+export function updateNote(id: string, text: string): void {
+  mutate((d) => {
+    const n = d.notes.find((x) => x.id === id)
+    if (!n) return
+    n.text = text
+    touch(n)
+  })
+}
+
+export function deleteNote(id: string): void {
+  mutate((d) => {
+    d.notes = d.notes.filter((x) => x.id !== id)
+  })
+}
+
 // ---------- timer ----------
 
 /** Minutes without a heartbeat after which a running timer is treated as stopped (sleep, crash). */
