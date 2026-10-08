@@ -14,7 +14,8 @@ import { ChevronDown } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { WindowState } from '../../shared/api'
 import { cls } from './components/bits'
-import { AddBar, DayNav, TitleBar } from './components/Chrome'
+import { ChartsPanel } from './components/Charts'
+import { AddBar, DayNav, TitleBar, type View } from './components/Chrome'
 import { CheckInPrompt, NotesPanel, type CheckInSlot } from './components/CheckIns'
 import { ContextMenu, Dialog } from './components/Overlays'
 import { ProjectsPanel, SearchPanel } from './components/Panels'
@@ -72,8 +73,7 @@ export function App(): ReactNode {
   const today = useToday()
   const [date, setDate] = useState(today)
   const [win, setWin] = useState<WindowState>({ mode: 'normal', pinned: true })
-  const [searching, setSearching] = useState(false)
-  const [notesOpen, setNotesOpen] = useState(false)
+  const [view, setView] = useState<View>('tasks')
   const [checkIn, setCheckIn] = useState<CheckInSlot | null>(null)
   const checkInRef = useRef<CheckInSlot | null>(null)
   /** When the open prompt appeared, and whether it already paused the timer for going unanswered. */
@@ -165,8 +165,7 @@ export function App(): ReactNode {
   const focusTask = useCallback((id: string) => {
     const t = getData().tasks.find((x) => x.id === id)
     if (!t) return
-    setSearching(false)
-    setNotesOpen(false)
+    setView('tasks')
     setDate(t.date)
     setExpanded(id)
     setFlash(id)
@@ -223,6 +222,7 @@ export function App(): ReactNode {
   }
 
   const toggle = (id: string) => () => setExpanded((cur) => (cur === id ? null : id))
+  const closeView = useCallback(() => setView('tasks'), [])
   const goTo = (d: string): void => {
     setDate(d)
     setExpanded(null)
@@ -240,16 +240,8 @@ export function App(): ReactNode {
         <TitleBar
           win={win}
           theme={data.settings.theme}
-          searching={searching}
-          notesOpen={notesOpen}
-          onSearch={() => {
-            setSearching((s) => !s)
-            setNotesOpen(false)
-          }}
-          onNotes={() => {
-            setNotesOpen((n) => !n)
-            setSearching(false)
-          }}
+          view={view}
+          onView={(v) => setView((cur) => (cur === v ? 'tasks' : v))}
           onProjects={() => setProjectsOpen(true)}
         />
         <RunningBar onOpen={focusTask} />
@@ -257,9 +249,18 @@ export function App(): ReactNode {
           <div className="banner">Could not read your saved tasks, so changes are not being saved. ({loadError})</div>
         )}
 
-        {searching ? (
-          <SearchPanel today={today} onPick={focusTask} onClose={() => setSearching(false)} />
-        ) : notesOpen ? (
+        {view === 'search' ? (
+          <SearchPanel today={today} onPick={focusTask} onClose={() => setView('tasks')} />
+        ) : view === 'charts' ? (
+          <ChartsPanel
+            today={today}
+            onPickDay={(d) => {
+              goTo(d)
+              setView('tasks')
+            }}
+            onClose={closeView}
+          />
+        ) : view === 'notes' ? (
           <NotesPanel today={today} onAdd={openCheckIn} />
         ) : (
           <>

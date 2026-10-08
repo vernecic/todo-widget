@@ -723,15 +723,17 @@ export function counterValue(d: AppData, date: string, counterId: string): numbe
   return d.tallies.find((t) => t.date === date)?.values[counterId] ?? 0
 }
 
-/** Set a counter's value for a day. Never goes below 0. */
+/** Set a counter's value for a day. Never goes below 0. The day keeps the goal it had when first counted. */
 export function setCounterValue(date: string, counterId: string, value: number): void {
   mutate((d) => {
     let tally = d.tallies.find((t) => t.date === date)
     if (!tally) {
-      tally = { id: uid(), date, values: {}, updatedAt: stamp() }
+      tally = { id: uid(), date, values: {}, targets: {}, updatedAt: stamp() }
       d.tallies.push(tally)
     }
     tally.values[counterId] = Math.max(0, value)
+    const counter = d.counters.find((c) => c.id === counterId)
+    if (counter && !(counterId in tally.targets)) tally.targets[counterId] = counter.target
     touch(tally)
   })
 }
@@ -741,11 +743,26 @@ export function addToCounter(date: string, counterId: string, amount: number): v
   setCounterValue(date, counterId, counterValue(getData(), date, counterId) + amount)
 }
 
+/** New goal from today on; earlier days keep theirs. */
 export function setCounterTarget(counterId: string, target: number): void {
   mutate((d) => {
     const c = d.counters.find((x) => x.id === counterId)
     if (!c) return
     c.target = Math.max(1, target)
+    touch(c)
+    const today = d.tallies.find((t) => t.date === todayKey())
+    if (today && counterId in today.values) {
+      today.targets[counterId] = c.target
+      touch(today)
+    }
+  })
+}
+
+export function renameCounter(counterId: string, name: string): void {
+  mutate((d) => {
+    const c = d.counters.find((x) => x.id === counterId)
+    if (!c) return
+    c.name = name
     touch(c)
   })
 }
@@ -753,7 +770,11 @@ export function setCounterTarget(counterId: string, target: number): void {
 export function addCounter(target = 100): string {
   const id = uid()
   mutate((d) => {
-    d.counters.push({ id, target, updatedAt: stamp() })
+    // "Counter N" with the next number not already taken.
+    const used = new Set(d.counters.map((c) => c.name))
+    let n = d.counters.length + 1
+    while (used.has(`Counter ${n}`)) n++
+    d.counters.push({ id, name: `Counter ${n}`, target, updatedAt: stamp() })
   })
   return id
 }
@@ -765,6 +786,7 @@ export function removeCounter(counterId: string): void {
     for (const t of d.tallies) {
       if (!(counterId in t.values)) continue
       delete t.values[counterId]
+      delete t.targets[counterId]
       touch(t)
     }
   })

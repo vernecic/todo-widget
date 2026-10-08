@@ -1,6 +1,7 @@
 import { useDroppable } from '@dnd-kit/core'
 import {
   AppWindow,
+  ChartPie,
   ChevronLeft,
   ChevronRight,
   Minus,
@@ -24,13 +25,14 @@ import { parseQuick } from '../lib/parse'
 import { useData } from '../lib/store'
 import { cls, IconButton } from './bits'
 
+/** What fills the window below the title bar. */
+export type View = 'tasks' | 'search' | 'notes' | 'charts'
+
 export function TitleBar(props: {
   win: WindowState
   theme: 'light' | 'dark'
-  searching: boolean
-  notesOpen: boolean
-  onSearch: () => void
-  onNotes: () => void
+  view: View
+  onView: (view: View) => void
   onProjects: () => void
 }): ReactNode {
   const { win, theme } = props
@@ -39,10 +41,13 @@ export function TitleBar(props: {
     <header className="titlebar">
       <div className="brand">{widget ? '' : 'Todo'}</div>
       <div className="tb-actions">
-        <IconButton title="Search all tasks" active={props.searching} onClick={props.onSearch}>
+        <IconButton title="Search all tasks" active={props.view === 'search'} onClick={() => props.onView('search')}>
           <Search />
         </IconButton>
-        <IconButton title="Notes" active={props.notesOpen} onClick={props.onNotes}>
+        <IconButton title="Charts" active={props.view === 'charts'} onClick={() => props.onView('charts')}>
+          <ChartPie />
+        </IconButton>
+        <IconButton title="Notes" active={props.view === 'notes'} onClick={() => props.onView('notes')}>
           <NotebookPen />
         </IconButton>
         <IconButton title="Projects" onClick={props.onProjects}>

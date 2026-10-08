@@ -69,9 +69,11 @@ export interface Project {
   updatedAt: string
 }
 
-/** Unnamed counter box in Free time, e.g. 0 / 100. The target is the same every day. */
+/** Counter box in Free time, e.g. "Pullups 0 / 100". The same box on every day. */
 export interface Counter {
   id: string
+  name: string
+  /** Current goal. Each day keeps the goal it had in its tally. */
   target: number
   updatedAt: string
 }
@@ -81,6 +83,8 @@ export interface Tally {
   id: string
   date: string
   values: Record<string, number>
+  /** Goal each counter had that day, so a later goal change does not rewrite past streaks. */
+  targets: Record<string, number>
   updatedAt: string
 }
 

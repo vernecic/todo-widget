@@ -2,7 +2,7 @@
 
 Agreed in a design session on 2026-10-08. Built in three batches, each tested and committed on its own.
 
-## Batch 1: time tracking
+## Batch 1: time tracking (done)
 
 - **One timer at a time.** Setting a task to Doing starts its timer; starting another task pauses the current one. Statuses: To do, Doing (timer running), Paused (has time, not running), Done. Finishing a task stops its timer.
 - **Sessions.** Time is stored as start/end sessions (`end: null` while running). A session remembers the task's title, project and list when it started, so time from deleted tasks still counts. Sessions are cut at midnight when charted.
@@ -13,11 +13,11 @@ Agreed in a design session on 2026-10-08. Built in three batches, each tested an
 - **Auto-pause.** Locking the PC, sleep, or quitting pauses the timer at that moment. A toast then says "Paused X at 14:05" with **Keep time**, which resumes the timer as if the pause never happened (for meetings away from the PC).
 - **Later:** an "Edit time" view to fix past sessions.
 
-## Batch 2: charts and counter names
+## Batch 2: charts and counter names (done)
 
-- **Charts view**, opened from a chart icon in the title bar (like search; Escape goes back). Notes keep their own icon.
+- **Charts view**, opened from a chart icon in the title bar (like search; Escape goes back). Notes keep their own icon; Notes is a notepad with the check-in log as a second tab.
 - **Done grid**, GitHub style: one square per day for the last 12 months, weeks as columns, Mon to Sun as rows. Counts tasks by the day they were ticked done. Five shades scaled to your usual day. Hover: "Wed 08 Oct · 7 tasks done". Click: go to that day. Summary: tasks this year, longest streak, current streak. In the widget it shows about 16 weeks and scrolls sideways.
-- **Time donut** from the timer sessions. One slice per project in its project color. All Free time is one gray slice. Work time with no project and "Other" time share a **Work Other** slice (hover lists the Other notes). A toggle hides Free time. Range chips: Today, This week (default), This month, All time. Slices show hours and %; hover lists the top tasks.
+- **Time donut** from the timer sessions. One slice per project in its project color. All Free time is one gray slice. Work time with no project and "Other" time share a **Work Other** slice (hover lists the Other notes). A toggle hides Free time. Range chips: Today, This week (default), This month, All time. Slices show hours and %; hover lists the top tasks. At most 4 project slices; smaller projects fold into Work Other. Chart colors are chart-strength versions of each project's hue.
 - **Counter names**: each box gets an editable name, default "Counter 1", "Counter 2"… The name belongs to the box, so it stays the same on every day. Streaks ("Pullups · 🔥 6") count days the box reached the goal it had on that day, so each day stores its goal along with its count.
 
 ## Batch 3: smaller extras

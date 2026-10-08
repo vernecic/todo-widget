@@ -16,7 +16,7 @@ const legacyCounterId = (i: number): string => `counter-${i}`
 
 function defaultCounters(): Counter[] {
   const now = new Date().toISOString()
-  return DEFAULT_TARGETS.map((target, i) => ({ id: legacyCounterId(i), target, updatedAt: now }))
+  return DEFAULT_TARGETS.map((target, i) => ({ id: legacyCounterId(i), name: `Counter ${i + 1}`, target, updatedAt: now }))
 }
 
 export function emptyData(): AppData {
@@ -48,8 +48,8 @@ interface RawData {
   tasks?: Partial<Task>[]
   series?: Partial<Series>[]
   projects?: Project[]
-  counters?: Counter[]
-  tallies?: (Omit<Tally, 'values'> & { values: Tally['values'] | number[] })[]
+  counters?: (Omit<Counter, 'name'> & { name?: string })[]
+  tallies?: (Omit<Tally, 'values' | 'targets'> & { values: Tally['values'] | number[]; targets?: Tally['targets'] })[]
   checkIns?: Partial<CheckIn>[]
   sessions?: Session[]
   notes?: Note[]
@@ -78,18 +78,19 @@ function normalize(raw: RawData): AppData {
     version: 1,
     tasks: (raw.tasks ?? []).map((t) => {
       const task = { ...TASK_DEFAULTS, ...t } as Task
-      // Older files allowed several "doing" tasks with no timer: they become paused.
-      if (task.doing && !raw.sessions?.some((s) => s.taskId === task.id && s.end === null)) {
-        task.doing = false
-        task.paused = !task.done
-      }
+      // "Doing" always matches the running timer. Older files allowed several doing tasks with no timer: they become paused.
+      const timing = !task.done && !!raw.sessions?.some((s) => s.taskId === task.id && s.end === null)
+      if (task.doing && !timing) task.paused = !task.done
+      task.doing = timing
+      if (timing) task.paused = false
       return task
     }),
     series: (raw.series ?? []).map((s) => ({ skipDates: [], endDate: null, subtasks: [], category: 'work', ...s }) as Series),
     projects: raw.projects ?? [],
-    counters: raw.counters ?? defaultCounters(),
+    counters: raw.counters?.map((c, i) => ({ ...c, name: c.name ?? `Counter ${i + 1}` })) ?? defaultCounters(),
     tallies: (raw.tallies ?? []).map((t) => ({
       ...t,
+      targets: t.targets ?? {},
       values: Array.isArray(t.values)
         ? Object.fromEntries(t.values.map((v, i) => [legacyCounterId(i), v]))
         : t.values
