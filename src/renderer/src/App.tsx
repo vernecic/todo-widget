@@ -20,8 +20,10 @@ import { ContextMenu, Dialog } from './components/Overlays'
 import { ProjectsPanel, SearchPanel } from './components/Panels'
 import { CategorySection, Counters, WorkCheck } from './components/Sections'
 import { SortableTask, TaskItem } from './components/TaskItem'
+import { AwayToast, RunningBar } from './components/Timer'
 import {
   addCheckIn,
+  autoPause,
   CATEGORIES,
   ensureInstances,
   moveTask,
@@ -31,11 +33,14 @@ import {
   setDoneCollapsed,
   takeDueReminders,
   takeHourlyCheckIn,
-  takeWorkCheck
+  takeWorkCheck,
+  timerHeartbeat
 } from './lib/actions'
 import { addDays, todayKey } from './lib/dates'
 import { getData, loadError, saveNow, useData } from './lib/store'
 import type { Category } from './lib/types'
+
+const PROMPT_TIMEOUT_MS = 5 * 60_000
 
 const isDayTarget = (id: unknown): boolean => id === 'day-prev' || id === 'day-next'
 const isSection = (id: unknown): boolean => String(id).startsWith('section-')
@@ -71,6 +76,8 @@ export function App(): ReactNode {
   const [notesOpen, setNotesOpen] = useState(false)
   const [checkIn, setCheckIn] = useState<CheckInSlot | null>(null)
   const checkInRef = useRef<CheckInSlot | null>(null)
+  /** When the open prompt appeared, and whether it already paused the timer for going unanswered. */
+  const promptOpened = useRef<{ at: string; paused: boolean } | null>(null)
   const [projectsOpen, setProjectsOpen] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [flash, setFlash] = useState<string | null>(null)
@@ -84,12 +91,15 @@ export function App(): ReactNode {
     window.api.getWindowState().then(setWin)
     const offState = window.api.onWindowState(setWin)
     const offFlush = window.api.onFlush(async () => {
+      autoPause('closed')
       await saveNow()
       window.api.flushed()
     })
+    const offAway = window.api.onAway((reason) => autoPause(reason))
     return () => {
       offState()
       offFlush()
+      offAway()
     }
   }, [])
 
@@ -115,11 +125,19 @@ export function App(): ReactNode {
 
   const openCheckIn = useCallback((slot: CheckInSlot | null) => {
     checkInRef.current = slot
+    promptOpened.current = slot ? { at: new Date().toISOString(), paused: false } : null
     setCheckIn(slot)
   }, [])
 
   useEffect(() => {
     const tick = (): void => {
+      timerHeartbeat()
+      // Nobody answered the check-in for 5 minutes: they are away, pause from when it appeared.
+      const opened = promptOpened.current
+      if (opened && !opened.paused && Date.now() - Date.parse(opened.at) >= PROMPT_TIMEOUT_MS) {
+        opened.paused = true
+        autoPause('prompt', opened.at)
+      }
       for (const t of takeDueReminders()) {
         window.api.notify({ taskId: t.id, title: t.title || 'Reminder', body: `Reminder for ${t.reminder}` })
       }
@@ -234,6 +252,7 @@ export function App(): ReactNode {
           }}
           onProjects={() => setProjectsOpen(true)}
         />
+        <RunningBar onOpen={focusTask} />
         {loadError && (
           <div className="banner">Could not read your saved tasks, so changes are not being saved. ({loadError})</div>
         )}
@@ -295,6 +314,7 @@ export function App(): ReactNode {
         {projectsOpen && <ProjectsPanel onClose={() => setProjectsOpen(false)} />}
         {workCheck && <WorkCheck ids={workCheck} onClose={() => setWorkCheck(null)} />}
         {checkIn && <CheckInPrompt key={`${checkIn.date} ${checkIn.time}`} slot={checkIn} onClose={() => openCheckIn(null)} />}
+        <AwayToast />
         <Dialog />
         <ContextMenu />
       </div>

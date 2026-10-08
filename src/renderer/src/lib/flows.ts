@@ -59,8 +59,8 @@ export function taskMenuItems(task: Task): MenuItem[] {
   if (!task.done) {
     items.unshift(
       task.doing
-        ? { label: 'Stop doing', onSelect: () => setStatus(task.id, 'todo') }
-        : { label: 'Mark as doing', onSelect: () => setStatus(task.id, 'doing') },
+        ? { label: 'Pause timer', onSelect: () => setStatus(task.id, 'paused') }
+        : { label: task.paused ? 'Resume timer' : 'Start timer (Doing)', onSelect: () => setStatus(task.id, 'doing') },
       { kind: 'separator' }
     )
   }

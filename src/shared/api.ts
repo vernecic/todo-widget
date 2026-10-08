@@ -29,4 +29,6 @@ export interface Api {
   onWindowState(cb: (state: WindowState) => void): () => void
   onFocusTask(cb: (taskId: string) => void): () => void
   onFlush(cb: () => void): () => void
+  /** The screen locked or the PC is going to sleep. */
+  onAway(cb: (reason: 'lock' | 'sleep') => void): () => void
 }

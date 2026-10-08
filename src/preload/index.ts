@@ -21,7 +21,8 @@ const api: Api = {
   flushed: () => ipcRenderer.send('app:flushed'),
   onWindowState: (cb) => on('win:state', cb),
   onFocusTask: (cb) => on('task:focus', cb),
-  onFlush: (cb) => on('app:flush', cb)
+  onFlush: (cb) => on('app:flush', cb),
+  onAway: (cb) => on('power:away', cb)
 }
 
 contextBridge.exposeInMainWorld('api', api)

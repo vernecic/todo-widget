@@ -521,15 +521,6 @@ svg {
 :root[data-theme='dark'] .meta-item.complete {
   color: var(--check);
 }
-.doing-badge {
-  padding: 0 7px;
-  border-radius: 999px;
-  background: var(--doing-soft);
-  color: var(--doing-fg);
-  font-size: 11px;
-  font-weight: 650;
-  line-height: 16px;
-}
 .meta-item.rolled {
   color: var(--danger);
 }
@@ -773,6 +764,11 @@ select.field-input {
 .seg-btn.doing.on {
   background: var(--doing-soft);
   color: var(--doing-fg);
+}
+.seg-btn.paused.on {
+  background: var(--surface);
+  color: var(--doing-fg);
+  box-shadow: inset 0 0 0 1px var(--doing);
 }
 .seg-btn.done.on {
   background: color-mix(in srgb, var(--check) 35%, var(--surface));
@@ -1247,26 +1243,6 @@ input.num-edit {
 .dialog .field-input.wide {
   margin-top: 12px;
 }
-.doing-picks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-}
-.doing-pick {
-  max-width: 100%;
-  padding: 2px 9px;
-  border-radius: 999px;
-  background: var(--doing-soft);
-  color: var(--doing-fg);
-  font-size: 12px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.doing-pick:hover {
-  box-shadow: inset 0 0 0 1px var(--doing);
-}
 
 .notes-view {
   flex: 1;
@@ -1328,4 +1304,190 @@ input.num-edit {
 .note-row:hover .remove,
 .note-row .remove:focus-visible {
   opacity: 1;
+}
+
+/* ---------- timer ---------- */
+
+.timer-btn {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--faint);
+  opacity: 0;
+  transition: opacity 0.12s, background 0.12s, color 0.12s;
+}
+.timer-btn svg {
+  width: 11px;
+  height: 11px;
+  fill: currentColor;
+}
+.task:hover .timer-btn,
+.timer-btn:focus-visible,
+.timer-btn.on,
+.timer-btn.paused {
+  opacity: 1;
+}
+.timer-btn:hover {
+  background: var(--doing-soft);
+  color: var(--doing-fg);
+}
+.timer-btn.on {
+  background: var(--doing);
+  color: var(--surface);
+}
+.timer-btn.paused {
+  color: var(--doing-fg);
+  box-shadow: inset 0 0 0 1.5px var(--doing);
+}
+.task.paused {
+  border-style: dashed;
+  border-color: var(--doing);
+}
+
+.meta-item.tracked.live {
+  color: var(--doing-fg);
+  font-weight: 600;
+}
+
+.running-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 var(--pad) 8px;
+  padding: 4px 4px 4px 10px;
+  border-radius: var(--radius);
+  background: var(--doing-soft);
+  color: var(--doing-fg);
+}
+.running-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--doing);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+.running-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  font-weight: 600;
+}
+.running-title:not(:disabled):hover {
+  text-decoration: underline;
+}
+.running-title:disabled {
+  cursor: default;
+}
+.running-time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.running-bar .icon-btn {
+  color: inherit;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 14px;
+  z-index: 45;
+  transform: translateX(-50%);
+  width: min(420px, calc(100% - 24px));
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 6px 6px 12px;
+  border-radius: 10px;
+  background: var(--text);
+  color: var(--bg);
+  box-shadow: var(--shadow-lg);
+  font-size: 12.5px;
+}
+.toast-text {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.toast .btn.ghost,
+.toast .icon-btn {
+  color: var(--bg);
+}
+.toast .btn.ghost:hover,
+.toast .icon-btn:hover {
+  background: color-mix(in srgb, var(--bg) 18%, transparent);
+  color: var(--bg);
+}
+
+.dialog.checkin {
+  width: min(400px, 100%);
+}
+.pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 12px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  text-align: left;
+}
+.pick:hover {
+  border-color: var(--doing);
+  background: var(--doing-soft);
+}
+.pick.on {
+  border-color: var(--doing);
+}
+.pick-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pick-status {
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--muted);
+}
+.pick-status.on {
+  color: var(--doing-fg);
+}
+.pick.other {
+  border-style: dashed;
+  color: var(--muted);
+}
+.pick.other.open {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.other-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+}
+.other-form .btn {
+  height: 34px;
 }

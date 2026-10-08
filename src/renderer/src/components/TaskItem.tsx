@@ -12,6 +12,7 @@ import type { Task } from '../lib/types'
 import { openMenu } from '../lib/ui'
 import { Checkbox, cls, ProjectPill } from './bits'
 import { TaskDetails } from './TaskDetails'
+import { TaskTime, TimerButton } from './Timer'
 
 interface Handle {
   ref: (el: HTMLElement | null) => void
@@ -43,11 +44,7 @@ export function TaskItem({ task, expanded, onToggleExpand, flash, overlay, handl
   }
 
   const meta = [
-    task.doing && !task.done && (
-      <span key="d" className="meta-item doing-badge">
-        Doing
-      </span>
-    ),
+    <TaskTime key="time" task={task} />,
     project && <ProjectPill key="p" project={project} />,
     task.subtasks.length > 0 && (
       <span key="s" className={cls('meta-item', subsDone === task.subtasks.length && 'complete')}>
@@ -84,7 +81,15 @@ export function TaskItem({ task, expanded, onToggleExpand, flash, overlay, handl
       tabIndex={0}
       onKeyDown={onKey}
       onContextMenu={(e) => openMenu(e, taskMenuItems(task))}
-      className={cls('task', task.done && 'done', task.doing && !task.done && 'doing', open && 'open', flash && 'flash', overlay && 'overlay')}
+      className={cls(
+        'task',
+        task.done && 'done',
+        task.doing && !task.done && 'doing',
+        task.paused && !task.done && 'paused',
+        open && 'open',
+        flash && 'flash',
+        overlay && 'overlay'
+      )}
       style={{ '--prio': prio.color } as CSSProperties}
     >
       <button
@@ -110,6 +115,7 @@ export function TaskItem({ task, expanded, onToggleExpand, flash, overlay, handl
             <span className="grip placeholder" />
           )}
           <Checkbox checked={task.done} doing={task.doing} onChange={() => toggleTask(task.id)} />
+          <TimerButton task={task} />
           <div className="task-text">
             {open ? (
               <input

@@ -1,7 +1,7 @@
 import { addDays, minutesOf, nowTime, todayKey, weekday } from './dates'
 import { PROJECT_COLORS } from './colors'
 import { getData, mutate, stamp, uid } from './store'
-import type { AppData, Category, Priority, Project, Repeat, Series, Status, Subtask, Task } from './types'
+import type { AppData, AwayReason, Category, Priority, Project, Repeat, Series, Session, Status, Subtask, Task } from './types'
 
 // ---------- helpers ----------
 
@@ -45,6 +45,7 @@ function newTask(d: AppData, fields: Partial<Task> & { title: string; date: stri
     done: false,
     doneAt: null,
     doing: false,
+    paused: false,
     subtasks: [],
     reminder: null,
     remindedKey: null,
@@ -57,18 +58,19 @@ function newTask(d: AppData, fields: Partial<Task> & { title: string; date: stri
   }
 }
 
-/** Finishing or reopening a task also ends "doing"; reopened tasks go back to To do. */
+/** Finishing or reopening a task also ends "doing"; reopened tasks go back to To do. Call `settle` after. */
 function setDone(t: Task, done: boolean): void {
   t.done = done
   t.doneAt = done ? stamp() : null
   t.doing = false
+  t.paused = false
   touch(t)
 }
 
-export const taskStatus = (t: Task): Status => (t.done ? 'done' : t.doing ? 'doing' : 'todo')
+export const taskStatus = (t: Task): Status => (t.done ? 'done' : t.doing ? 'doing' : t.paused ? 'paused' : 'todo')
 
-export const STATUS_LABEL: Record<Status, string> = { todo: 'To do', doing: 'Doing', done: 'Done' }
-export const STATUSES: Status[] = ['todo', 'doing', 'done']
+export const STATUS_LABEL: Record<Status, string> = { todo: 'To do', doing: 'Doing', paused: 'Paused', done: 'Done' }
+export const STATUSES: Status[] = ['todo', 'doing', 'paused', 'done']
 
 // ---------- projects ----------
 
@@ -267,6 +269,7 @@ export function toggleTask(id: string): void {
   mutate((d) => {
     const t = find(d, id)
     if (t) setDone(t, !t.done)
+    settle(d)
   })
 }
 
@@ -274,10 +277,16 @@ export function setStatus(id: string, status: Status): void {
   mutate((d) => {
     const t = find(d, id)
     if (!t || taskStatus(t) === status) return
-    if (status === 'done') return setDone(t, true)
-    if (t.done) setDone(t, false)
-    t.doing = status === 'doing'
-    touch(t)
+    if (status === 'doing') return startIn(d, t)
+    if (status === 'done') setDone(t, true)
+    else {
+      if (t.done) setDone(t, false)
+      if (running(d)?.taskId === t.id) stopRunning(d, stamp())
+      t.doing = false
+      t.paused = status === 'paused'
+      touch(t)
+    }
+    settle(d)
   })
 }
 
@@ -330,6 +339,7 @@ export function deleteTask(id: string, scope: 'one' | 'future' = 'one'): void {
       touch(s)
     }
     d.tasks = d.tasks.filter((x) => x.id !== id)
+    settle(d)
   })
 }
 
@@ -341,6 +351,7 @@ function editSubtasks(taskId: string, fn: (subs: Subtask[], t: Task) => void, te
     if (!t) return
     fn(t.subtasks, t)
     touch(t)
+    settle(d)
     if (templateChanged) syncTemplate(d, t, {}, t.subtasks.map((x) => x.title))
   })
 }
@@ -471,6 +482,12 @@ export function takeDueReminders(): Task[] {
 /** Minutes into the hour during which the prompt may still appear (so opening the app at 10:40 waits for 11:00). */
 const CHECK_IN_WINDOW = 10
 
+/** Weekdays 08:00 to 20:00 the prompt always asks; other hours only while a timer runs. */
+function promptHour(date: string, hour: number): boolean {
+  const day = weekday(date)
+  return (day !== 0 && day !== 6 && hour >= 8 && hour <= 20) || !!running(getData())
+}
+
 /** Once per hour, in the first minutes of the hour: returns the slot to ask "What are you doing?" about. */
 export function takeHourlyCheckIn(): { date: string; time: string } | null {
   const date = todayKey()
@@ -481,14 +498,38 @@ export function takeHourlyCheckIn(): { date: string; time: string } | null {
   mutate((d) => {
     d.settings.checkInHour = key
   })
+  if (!promptHour(date, Number(hour))) return null
   return minutesOf(now) % 60 < CHECK_IN_WINDOW ? { date, time: `${hour}:00` } : null
 }
 
-/** Record an answer. Empty text keeps the slot in the notes as skipped. */
-export function addCheckIn(date: string, time: string, text: string): void {
+/** Record a check-in. Empty text with no task keeps the slot in the notes as skipped. */
+export function addCheckIn(date: string, time: string, text: string, taskId: string | null = null): void {
   mutate((d) => {
     const now = stamp()
-    d.checkIns.push({ id: uid(), date, time, text: text.trim(), createdAt: now, updatedAt: now })
+    d.checkIns.push({ id: uid(), date, time, text: text.trim(), taskId, createdAt: now, updatedAt: now })
+  })
+}
+
+/**
+ * Answer the prompt. The answer sets what the timer runs from now on: the
+ * running task keeps going, another task takes over, "Other" runs an Other
+ * timer holding the note. Past time is never rewritten.
+ */
+export function answerCheckIn(date: string, time: string, answer: { taskId: string } | { note: string }): void {
+  mutate((d) => {
+    const now = stamp()
+    const current = running(d)
+    if ('taskId' in answer) {
+      const t = find(d, answer.taskId)
+      if (!t) return
+      d.checkIns.push({ id: uid(), date, time, text: t.title, taskId: t.id, createdAt: now, updatedAt: now })
+      if (current?.taskId !== t.id) startIn(d, t)
+    } else {
+      const note = answer.note.trim()
+      d.checkIns.push({ id: uid(), date, time, text: note || 'Other', taskId: null, createdAt: now, updatedAt: now })
+      const sameOther = current && current.taskId === null && (!note || current.note === note)
+      if (!sameOther) startOtherIn(d, note)
+    }
   })
 }
 
@@ -506,6 +547,149 @@ export function deleteCheckIn(id: string): void {
     d.checkIns = d.checkIns.filter((x) => x.id !== id)
   })
 }
+
+// ---------- timer ----------
+
+/** Minutes without a heartbeat after which a running timer is treated as stopped (sleep, crash). */
+const BEAT_GAP_MIN = 3
+
+export const running = (d: AppData): Session | undefined => d.sessions.find((s) => s.end === null)
+
+/** Close the running session at `at`. Its task becomes Paused. */
+function stopRunning(d: AppData, at: string): Session | undefined {
+  const s = running(d)
+  if (!s) return undefined
+  s.end = at < s.start ? s.start : at
+  touch(s)
+  const t = s.taskId ? find(d, s.taskId) : undefined
+  if (t && t.doing) {
+    t.doing = false
+    t.paused = !t.done
+    touch(t)
+  }
+  return s
+}
+
+function openSession(d: AppData, t: Task | null, note: string): void {
+  const now = stamp()
+  d.sessions.push({
+    id: uid(),
+    taskId: t?.id ?? null,
+    title: t?.title ?? '',
+    projectId: t?.projectId ?? null,
+    category: t?.category ?? 'work',
+    note,
+    start: now,
+    end: null,
+    beat: now,
+    updatedAt: now
+  })
+  d.settings.awayPause = null
+}
+
+function startIn(d: AppData, t: Task): void {
+  stopRunning(d, stamp())
+  if (t.done) setDone(t, false)
+  t.doing = true
+  t.paused = false
+  touch(t)
+  openSession(d, t, '')
+}
+
+function startOtherIn(d: AppData, note: string): void {
+  stopRunning(d, stamp())
+  openSession(d, null, note)
+}
+
+/** A running timer whose task was finished or deleted stops; time already tracked stays. */
+function settle(d: AppData): void {
+  const s = running(d)
+  if (!s?.taskId) return
+  const t = find(d, s.taskId)
+  if (!t || t.done) {
+    s.end = stamp()
+    touch(s)
+  }
+}
+
+export function startTimer(taskId: string): void {
+  mutate((d) => {
+    const t = find(d, taskId)
+    if (t) startIn(d, t)
+  })
+}
+
+export function pauseTimer(): void {
+  if (!running(getData())) return
+  mutate((d) => {
+    stopRunning(d, stamp())
+    d.settings.awayPause = null
+  })
+}
+
+/** The app pauses the timer itself (screen locked, sleep, closed, prompt not answered). */
+export function autoPause(reason: AwayReason, at: string = stamp()): void {
+  if (!running(getData())) return
+  mutate((d) => {
+    const s = stopRunning(d, at)
+    if (s) d.settings.awayPause = { sessionId: s.id, at: s.end!, reason }
+  })
+}
+
+/** "Keep time": resume the auto-paused session as if it had never stopped. */
+export function keepAwayTime(): void {
+  mutate((d) => {
+    const away = d.settings.awayPause
+    d.settings.awayPause = null
+    const s = away && d.sessions.find((x) => x.id === away.sessionId)
+    if (!s || running(d)) return
+    const t = s.taskId ? find(d, s.taskId) : undefined
+    if (s.taskId && (!t || t.done)) return
+    s.end = null
+    s.beat = stamp()
+    touch(s)
+    if (t) {
+      t.doing = true
+      t.paused = false
+      touch(t)
+    }
+  })
+}
+
+export function dismissAway(): void {
+  mutate((d) => {
+    d.settings.awayPause = null
+  })
+}
+
+/**
+ * Called about once a minute. A running timer that has not been seen for a few
+ * minutes (the PC slept, or the app crashed) is stopped at the last time it was seen.
+ */
+export function timerHeartbeat(): void {
+  const s = running(getData())
+  if (!s) return
+  const now = Date.now()
+  const last = Date.parse(s.beat)
+  if (now - last > BEAT_GAP_MIN * 60_000) {
+    autoPause('sleep', s.beat)
+    return
+  }
+  if (now - last < 50_000) return
+  mutate((d) => {
+    const r = running(d)
+    if (r) r.beat = new Date(now).toISOString()
+  })
+}
+
+const sessionMs = (s: Session, now: number): number => Math.max(0, (s.end ? Date.parse(s.end) : now) - Date.parse(s.start))
+
+/** Total tracked time for a task over every day. */
+export function trackedMs(d: AppData, taskId: string, now: number): number {
+  return d.sessions.reduce((sum, s) => (s.taskId === taskId ? sum + sessionMs(s, now) : sum), 0)
+}
+
+export const runningMs = (s: Session, now: number): number => sessionMs(s, now)
 
 // ---------- counters ----------
 

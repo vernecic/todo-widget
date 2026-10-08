@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, screen, Tray } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, powerMonitor, screen, Tray } from 'electron'
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { rename, writeFile } from 'fs/promises'
 import { join } from 'path'
@@ -270,6 +270,9 @@ if (!app.requestSingleInstanceLock()) {
     registerIpc()
     createWindow()
     createTray()
+    // Running timers pause when the user steps away.
+    powerMonitor.on('lock-screen', () => win?.webContents.send('power:away', 'lock'))
+    powerMonitor.on('suspend', () => win?.webContents.send('power:away', 'sleep'))
   })
 
   // Give the renderer a moment to write pending changes before exiting.

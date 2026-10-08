@@ -1,4 +1,4 @@
-import type { AppData, CheckIn, Counter, Project, Series, Settings, Tally, Task } from './types'
+import type { AppData, CheckIn, Counter, Project, Series, Session, Settings, Tally, Task } from './types'
 
 /**
  * Where app data lives. Today it is a local JSON file; a Supabase adapter can
@@ -29,13 +29,15 @@ export function emptyData(): AppData {
     counters: defaultCounters(),
     tallies: [],
     checkIns: [],
+    sessions: [],
     settings: {
       theme: dark ? 'dark' : 'light',
       doneCollapsed: false,
       collapsed: { work: false, free: false },
       addCategory: 'work',
       workCheckDate: null,
-      checkInHour: null
+      checkInHour: null,
+      awayPause: null
     }
   }
 }
@@ -47,7 +49,8 @@ interface RawData {
   projects?: Project[]
   counters?: Counter[]
   tallies?: (Omit<Tally, 'values'> & { values: Tally['values'] | number[] })[]
-  checkIns?: CheckIn[]
+  checkIns?: Partial<CheckIn>[]
+  sessions?: Session[]
   settings?: Partial<Settings>
 }
 
@@ -63,6 +66,7 @@ const TASK_DEFAULTS: Partial<Task> = {
   category: 'work',
   doneAt: null,
   doing: false,
+  paused: false,
   priority: 0
 }
 
@@ -70,7 +74,15 @@ function normalize(raw: RawData): AppData {
   const base = emptyData()
   return {
     version: 1,
-    tasks: (raw.tasks ?? []).map((t) => ({ ...TASK_DEFAULTS, ...t }) as Task),
+    tasks: (raw.tasks ?? []).map((t) => {
+      const task = { ...TASK_DEFAULTS, ...t } as Task
+      // Older files allowed several "doing" tasks with no timer: they become paused.
+      if (task.doing && !raw.sessions?.some((s) => s.taskId === task.id && s.end === null)) {
+        task.doing = false
+        task.paused = !task.done
+      }
+      return task
+    }),
     series: (raw.series ?? []).map((s) => ({ skipDates: [], endDate: null, subtasks: [], category: 'work', ...s }) as Series),
     projects: raw.projects ?? [],
     counters: raw.counters ?? defaultCounters(),
@@ -80,7 +92,8 @@ function normalize(raw: RawData): AppData {
         ? Object.fromEntries(t.values.map((v, i) => [legacyCounterId(i), v]))
         : t.values
     })),
-    checkIns: raw.checkIns ?? [],
+    checkIns: (raw.checkIns ?? []).map((c) => ({ taskId: null, ...c }) as CheckIn),
+    sessions: raw.sessions ?? [],
     settings: { ...base.settings, ...raw.settings }
   }
 }

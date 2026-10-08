@@ -1,10 +1,11 @@
 import { Plus, X } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
-import { addCheckIn, deleteCheckIn, updateCheckIn } from '../lib/actions'
+import { answerCheckIn, deleteCheckIn, running, runningMs, updateCheckIn } from '../lib/actions'
 import { formatDay, nowTime, relativeLabel, todayKey } from '../lib/dates'
 import { useData } from '../lib/store'
-import type { CheckIn } from '../lib/types'
-import { IconButton } from './bits'
+import type { CheckIn, Task } from '../lib/types'
+import { cls, IconButton, ProjectPill } from './bits'
+import { formatDuration, sessionLabel, useNow } from './Timer'
 
 export interface CheckInSlot {
   date: string
@@ -12,61 +13,77 @@ export interface CheckInSlot {
 }
 
 /**
- * Hourly "What are you doing?" prompt. Writing is optional: Skip (or Enter on an
- * empty field, or Escape) still logs the hour, with nothing after "Doing:".
+ * Hourly "What are you doing?" prompt. An answer is required: one of the day's
+ * open tasks, or "Other" with an optional note. The answer drives the timer
+ * from now on. Left unanswered for 5 minutes, the timer pauses (see App).
  */
 export function CheckInPrompt({ slot, onClose }: { slot: CheckInSlot; onClose: () => void }): ReactNode {
   const data = useData()
-  const [text, setText] = useState('')
-  const doing = data.tasks.filter((t) => t.date === slot.date && t.doing && !t.done)
+  const [other, setOther] = useState(false)
+  const [note, setNote] = useState('')
+  const current = running(data)
+  const now = useNow(!!current)
+  const rank = (t: Task): number => (t.doing ? 0 : t.paused ? 1 : 2)
+  const tasks = data.tasks
+    .filter((t) => t.date === slot.date && !t.done)
+    .sort((a, b) => rank(a) - rank(b) || a.order - b.order)
 
-  const finish = (answer: string): void => {
-    addCheckIn(slot.date, slot.time, answer)
+  const pick = (answer: { taskId: string } | { note: string }): void => {
+    answerCheckIn(slot.date, slot.time, answer)
     onClose()
   }
 
   return (
-    <div
-      className="overlay"
-      onMouseDown={(e) => e.target === e.currentTarget && finish('')}
-      onKeyDown={(e) => e.key === 'Escape' && finish('')}
-    >
-      <form
-        className="dialog"
-        role="dialog"
-        aria-modal="true"
-        onSubmit={(e) => {
-          e.preventDefault()
-          finish(text)
-        }}
-      >
+    <div className="overlay">
+      <div className="dialog checkin" role="dialog" aria-modal="true">
         <h2>What are you doing?</h2>
-        <p>{slot.time} check-in. Leave it empty to skip.</p>
-        <input
-          autoFocus
-          className="field-input wide"
-          value={text}
-          placeholder="Doing…"
-          onChange={(e) => setText(e.target.value)}
-        />
-        {doing.length > 0 && (
-          <div className="doing-picks">
-            {doing.map((t) => (
-              <button key={t.id} type="button" className="doing-pick" onClick={() => setText(t.title)}>
-                {t.title || 'Untitled'}
+        <p>
+          {slot.time} check-in ·{' '}
+          {current ? (
+            <>
+              Running: <strong>{sessionLabel(data, current)}</strong> · {formatDuration(runningMs(current, now))}
+            </>
+          ) : (
+            'No timer running'
+          )}
+        </p>
+        <div className="pick-list">
+          {tasks.map((t) => {
+            const project = data.projects.find((p) => p.id === t.projectId)
+            return (
+              <button key={t.id} type="button" className={cls('pick', t.doing && 'on')} onClick={() => pick({ taskId: t.id })}>
+                <span className="pick-title">{t.title || 'Untitled'}</span>
+                {project && <ProjectPill project={project} />}
+                {(t.doing || t.paused) && <span className={cls('pick-status', t.doing && 'on')}>{t.doing ? 'Running' : 'Paused'}</span>}
               </button>
-            ))}
-          </div>
-        )}
-        <div className="dialog-actions">
-          <button type="button" className="btn" onClick={() => finish('')}>
-            Skip
-          </button>
-          <button type="submit" className="btn primary">
-            Save
+            )
+          })}
+          {tasks.length === 0 && <p className="empty small">No open tasks today.</p>}
+          <button type="button" className={cls('pick', 'other', other && 'open')} onClick={() => setOther(true)}>
+            <span className="pick-title">Other…</span>
           </button>
         </div>
-      </form>
+        {other && (
+          <form
+            className="other-form"
+            onSubmit={(e) => {
+              e.preventDefault()
+              pick({ note })
+            }}
+          >
+            <input
+              autoFocus
+              className="field-input wide"
+              value={note}
+              placeholder="What? (optional)"
+              onChange={(e) => setNote(e.target.value)}
+            />
+            <button type="submit" className="btn primary">
+              Save
+            </button>
+          </form>
+        )}
+      </div>
     </div>
   )
 }

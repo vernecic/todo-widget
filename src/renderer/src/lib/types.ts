@@ -10,7 +10,7 @@ export interface Subtask {
 export type Category = 'work' | 'free'
 
 /** Where a task stands: not started, being worked on, or finished. */
-export type Status = 'todo' | 'doing' | 'done'
+export type Status = 'todo' | 'doing' | 'paused' | 'done'
 
 export type Repeat = { kind: 'daily' } | { kind: 'weekly'; days: number[] }
 
@@ -26,8 +26,10 @@ export interface Task {
   category: Category
   done: boolean
   doneAt: string | null
-  /** Being worked on right now. Always false once the task is done. */
+  /** Its timer is running. Only one task at a time; always false once the task is done. */
   doing: boolean
+  /** Has been worked on and set aside; its timer can be resumed. */
+  paused: boolean
   subtasks: Subtask[]
   /** Reminder time HH:MM on the task's day. */
   reminder: string | null
@@ -89,8 +91,39 @@ export interface CheckIn {
   /** HH:MM; the hour the prompt was for, or the time of a manual entry. */
   time: string
   text: string
+  /** Task picked as the answer; null for "Other" or a skipped hour. */
+  taskId: string | null
   createdAt: string
   updatedAt: string
+}
+
+/**
+ * A stretch of tracked time. `end` is null while the timer runs; only one
+ * session runs at a time. The task's title, project and list are copied in
+ * when it starts so time from deleted tasks still counts. `taskId` null is
+ * "Other" time, described by `note`.
+ */
+export interface Session {
+  id: string
+  taskId: string | null
+  title: string
+  projectId: string | null
+  category: Category
+  note: string
+  start: string
+  end: string | null
+  /** Last time the app saw this session running; used to cut it off after sleep or a crash. */
+  beat: string
+  updatedAt: string
+}
+
+export type AwayReason = 'lock' | 'sleep' | 'closed' | 'prompt'
+
+/** A timer the app paused on its own, so the user can keep that time after all. */
+export interface AwayPause {
+  sessionId: string
+  at: string
+  reason: AwayReason
 }
 
 export interface Settings {
@@ -103,6 +136,7 @@ export interface Settings {
   workCheckDate: string | null
   /** `${date} ${HH}` of the last hourly check-in, so each hour asks once. */
   checkInHour: string | null
+  awayPause: AwayPause | null
 }
 
 export interface AppData {
@@ -113,5 +147,6 @@ export interface AppData {
   counters: Counter[]
   tallies: Tally[]
   checkIns: CheckIn[]
+  sessions: Session[]
   settings: Settings
 }
