@@ -887,11 +887,12 @@ select.field-input {
 
 .counters {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
   gap: 6px;
   margin-bottom: 8px;
 }
 .counter {
+  position: relative;
   min-width: 0;
   padding: 7px 8px 6px;
   background: var(--surface);
@@ -902,13 +903,45 @@ select.field-input {
 .counter:focus-within {
   border-color: var(--accent);
 }
+.counter-remove {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  opacity: 0;
+}
+.counter:hover .counter-remove,
+.counter-remove:focus-visible {
+  opacity: 1;
+}
 .counter-num {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
   font-size: 12px;
   color: var(--muted);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
-.counter-num strong {
+.num-edit {
+  min-width: 0;
+  padding: 0 2px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  outline: none;
+  color: inherit;
+  font-size: inherit;
+}
+button.num-edit:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+input.num-edit {
+  width: auto;
+  background: var(--surface-2);
+  color: var(--text);
+}
+.num-edit.counter-value {
   font-size: 16px;
   font-weight: 650;
   color: var(--text);
@@ -929,6 +962,19 @@ select.field-input {
 }
 .counter.complete .counter-bar span {
   background: var(--check);
+}
+.counter-add {
+  display: grid;
+  place-items: center;
+  min-height: 72px;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius);
+  color: var(--faint);
+}
+.counter-add:hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  background: var(--accent-soft);
 }
 .counter input {
   width: 100%;

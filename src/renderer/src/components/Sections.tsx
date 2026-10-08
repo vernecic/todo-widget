@@ -1,9 +1,20 @@
 import { useDroppable } from '@dnd-kit/core'
-import { ChevronDown } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
-import { addToCounter, CATEGORY_LABEL, COUNTER_TARGETS, setCategoryCollapsed, tallyFor, toggleTask } from '../lib/actions'
+import { ChevronDown, Plus, X } from 'lucide-react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import {
+  addCounter,
+  addToCounter,
+  CATEGORY_LABEL,
+  counterValue,
+  removeCounter,
+  setCategoryCollapsed,
+  setCounterTarget,
+  setCounterValue,
+  toggleTask
+} from '../lib/actions'
 import { useData } from '../lib/store'
-import type { Category, Task } from '../lib/types'
+import type { Category, Counter, Task } from '../lib/types'
+import { ask } from '../lib/ui'
 import { Checkbox, cls } from './bits'
 
 /** Collapsible WORK / FREE TIME list. The header is a drop target that moves a task to the top of this list. */
@@ -30,32 +41,69 @@ export function CategorySection(props: { category: Category; count: number; chil
 
 export function Counters({ date }: { date: string }): ReactNode {
   const data = useData()
-  const values = tallyFor(data, date)
+  // A box that was just added opens with its target ready to type.
+  const [fresh, setFresh] = useState<string | null>(null)
+  useEffect(() => {
+    if (fresh) setFresh(null)
+  }, [fresh])
   return (
     <div className="counters">
-      {COUNTER_TARGETS.map((target, i) => (
-        <Counter key={i} value={values[i]} target={target} onAdd={(n) => addToCounter(date, i, n)} />
+      {data.counters.map((c) => (
+        <CounterBox key={c.id} date={date} counter={c} value={counterValue(data, date, c.id)} editTarget={fresh === c.id} />
       ))}
+      <button type="button" className="counter-add" title="Add a counter" onClick={() => setFresh(addCounter())}>
+        <Plus />
+      </button>
     </div>
   )
 }
 
-function Counter(props: { value: number; target: number; onAdd: (amount: number) => void }): ReactNode {
+function CounterBox(props: { date: string; counter: Counter; value: number; editTarget: boolean }): ReactNode {
   const [draft, setDraft] = useState('')
-  const { value, target } = props
+  const { date, counter, value } = props
+  const target = counter.target
+
+  const remove = async (): Promise<void> => {
+    const r = await ask({
+      title: 'Remove counter?',
+      message: `The ${target} box and its numbers on every day are removed.`,
+      buttons: [
+        { id: 'cancel', label: 'Cancel' },
+        { id: 'remove', label: 'Remove', kind: 'danger' }
+      ]
+    })
+    if (r.button === 'remove') removeCounter(counter.id)
+  }
+
   return (
     <form
       className={cls('counter', value >= target && 'complete')}
-      title="Type a number and press Enter to add it. Use -5 to take 5 away."
       onSubmit={(e) => {
         e.preventDefault()
         const n = Number.parseInt(draft, 10)
-        if (Number.isFinite(n) && n !== 0) props.onAdd(n)
+        if (Number.isFinite(n) && n !== 0) addToCounter(date, counter.id, n)
         setDraft('')
       }}
     >
+      <button type="button" className="icon-btn small counter-remove" title="Remove counter" onClick={remove}>
+        <X />
+      </button>
       <div className="counter-num">
-        <strong>{value}</strong> / {target}
+        <NumberEdit
+          className="counter-value"
+          value={value}
+          min={0}
+          title="Click to change this day's number"
+          onCommit={(n) => setCounterValue(date, counter.id, n)}
+        />
+        {' / '}
+        <NumberEdit
+          value={target}
+          min={1}
+          title="Click to change the goal"
+          autoEdit={props.editTarget}
+          onCommit={(n) => setCounterTarget(counter.id, n)}
+        />
       </div>
       <div className="counter-bar">
         <span style={{ width: `${Math.min(100, (value / target) * 100)}%` }} />
@@ -64,9 +112,68 @@ function Counter(props: { value: number; target: number; onAdd: (amount: number)
         inputMode="numeric"
         value={draft}
         placeholder="+ add"
+        title="Type a number and press Enter to add it. Use -5 to take 5 away."
         onChange={(e) => setDraft(e.target.value.replace(/[^\d-]/g, ''))}
       />
     </form>
+  )
+}
+
+/** A number that turns into an input when clicked. Enter or leaving saves, Escape cancels. */
+function NumberEdit(props: {
+  value: number
+  min: number
+  title: string
+  className?: string
+  autoEdit?: boolean
+  onCommit: (value: number) => void
+}): ReactNode {
+  const [draft, setDraft] = useState<string | null>(props.autoEdit ? String(props.value) : null)
+  const cancelled = useRef(false)
+
+  if (draft === null) {
+    return (
+      <button
+        type="button"
+        className={cls('num-edit', props.className)}
+        title={props.title}
+        onClick={() => {
+          cancelled.current = false
+          setDraft(String(props.value))
+        }}
+      >
+        {props.value}
+      </button>
+    )
+  }
+
+  const commit = (): void => {
+    const n = Number.parseInt(draft, 10)
+    if (!cancelled.current && Number.isFinite(n) && n >= props.min && n !== props.value) props.onCommit(n)
+    setDraft(null)
+  }
+
+  return (
+    <input
+      autoFocus
+      inputMode="numeric"
+      className={cls('num-edit', 'editing', props.className)}
+      value={draft}
+      size={Math.max(2, draft.length)}
+      onFocus={(e) => e.target.select()}
+      onChange={(e) => setDraft(e.target.value.replace(/\D/g, ''))}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          e.currentTarget.blur()
+        } else if (e.key === 'Escape') {
+          e.stopPropagation()
+          cancelled.current = true
+          e.currentTarget.blur()
+        }
+      }}
+    />
   )
 }
 

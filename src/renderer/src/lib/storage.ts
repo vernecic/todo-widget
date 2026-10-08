@@ -1,4 +1,4 @@
-import type { AppData, CheckIn, Project, Series, Settings, Tally, Task } from './types'
+import type { AppData, CheckIn, Counter, Project, Series, Settings, Tally, Task } from './types'
 
 /**
  * Where app data lives. Today it is a local JSON file; a Supabase adapter can
@@ -10,6 +10,15 @@ export interface StorageAdapter {
   save(data: AppData): Promise<void>
 }
 
+/** Counters a new install starts with. Older files stored their values by position, in this order. */
+const DEFAULT_TARGETS = [100, 50, 20]
+const legacyCounterId = (i: number): string => `counter-${i}`
+
+function defaultCounters(): Counter[] {
+  const now = new Date().toISOString()
+  return DEFAULT_TARGETS.map((target, i) => ({ id: legacyCounterId(i), target, updatedAt: now }))
+}
+
 export function emptyData(): AppData {
   const dark = window.matchMedia('(prefers-color-scheme: dark)').matches
   return {
@@ -17,6 +26,7 @@ export function emptyData(): AppData {
     tasks: [],
     series: [],
     projects: [],
+    counters: defaultCounters(),
     tallies: [],
     checkIns: [],
     settings: {
@@ -35,7 +45,8 @@ interface RawData {
   tasks?: Partial<Task>[]
   series?: Partial<Series>[]
   projects?: Project[]
-  tallies?: Tally[]
+  counters?: Counter[]
+  tallies?: (Omit<Tally, 'values'> & { values: Tally['values'] | number[] })[]
   checkIns?: CheckIn[]
   settings?: Partial<Settings>
 }
@@ -62,7 +73,13 @@ function normalize(raw: RawData): AppData {
     tasks: (raw.tasks ?? []).map((t) => ({ ...TASK_DEFAULTS, ...t }) as Task),
     series: (raw.series ?? []).map((s) => ({ skipDates: [], endDate: null, subtasks: [], category: 'work', ...s }) as Series),
     projects: raw.projects ?? [],
-    tallies: raw.tallies ?? [],
+    counters: raw.counters ?? defaultCounters(),
+    tallies: (raw.tallies ?? []).map((t) => ({
+      ...t,
+      values: Array.isArray(t.values)
+        ? Object.fromEntries(t.values.map((v, i) => [legacyCounterId(i), v]))
+        : t.values
+    })),
     checkIns: raw.checkIns ?? [],
     settings: { ...base.settings, ...raw.settings }
   }

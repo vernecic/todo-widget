@@ -509,26 +509,54 @@ export function deleteCheckIn(id: string): void {
 
 // ---------- counters ----------
 
-/** Unnamed daily counters shown in Free time, e.g. 0 / 100. */
-export const COUNTER_TARGETS = [100, 50, 20]
-
-export function tallyFor(d: AppData, date: string): number[] {
-  const values = d.tallies.find((t) => t.date === date)?.values ?? []
-  return COUNTER_TARGETS.map((_, i) => values[i] ?? 0)
+export function counterValue(d: AppData, date: string, counterId: string): number {
+  return d.tallies.find((t) => t.date === date)?.values[counterId] ?? 0
 }
 
-/** Add to one counter for a day (negative amounts subtract). Never goes below 0. */
-export function addToCounter(date: string, index: number, amount: number): void {
+/** Set a counter's value for a day. Never goes below 0. */
+export function setCounterValue(date: string, counterId: string, value: number): void {
   mutate((d) => {
     let tally = d.tallies.find((t) => t.date === date)
     if (!tally) {
-      tally = { id: uid(), date, values: [], updatedAt: stamp() }
+      tally = { id: uid(), date, values: {}, updatedAt: stamp() }
       d.tallies.push(tally)
     }
-    const values = tallyFor(d, date)
-    values[index] = Math.max(0, values[index] + amount)
-    tally.values = values
+    tally.values[counterId] = Math.max(0, value)
     touch(tally)
+  })
+}
+
+/** Add to a counter for a day (negative amounts subtract). */
+export function addToCounter(date: string, counterId: string, amount: number): void {
+  setCounterValue(date, counterId, counterValue(getData(), date, counterId) + amount)
+}
+
+export function setCounterTarget(counterId: string, target: number): void {
+  mutate((d) => {
+    const c = d.counters.find((x) => x.id === counterId)
+    if (!c) return
+    c.target = Math.max(1, target)
+    touch(c)
+  })
+}
+
+export function addCounter(target = 100): string {
+  const id = uid()
+  mutate((d) => {
+    d.counters.push({ id, target, updatedAt: stamp() })
+  })
+  return id
+}
+
+/** Removes the box and its numbers on every day. */
+export function removeCounter(counterId: string): void {
+  mutate((d) => {
+    d.counters = d.counters.filter((c) => c.id !== counterId)
+    for (const t of d.tallies) {
+      if (!(counterId in t.values)) continue
+      delete t.values[counterId]
+      touch(t)
+    }
   })
 }
 

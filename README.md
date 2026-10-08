@@ -16,7 +16,7 @@ npm run icon       # regenerate build/icon.png and resources/icon.png
 
 - Add bar: `Send invoice #google !!` adds to the shown day with project "google" and medium priority (`!` low, `!!` medium, `!!!` high).
 - Tasks are split into WORK and FREE TIME. Click a header to collapse it. The pill in the add bar picks which list new tasks go to. Move a task between lists by dragging it onto the other list (or its header), from the right-click menu, or with the List field.
-- Free time has three daily counters (0 / 100, 0 / 50, 0 / 20). Type a number and press Enter to add it; `-5` takes 5 away.
+- Free time has daily counter boxes (starting with 0 / 100, 0 / 50, 0 / 20). Type a number in "+ add" and press Enter to add it; `-5` takes 5 away. Click either number to type a new one: the left is that day's count, the right is the goal for every day. The dashed + box adds a counter; hover a box for x to remove it.
 - Weekdays at 16:00, if today's work tasks are still open, a notification and a "Work check" dialog ask whether any are actually done.
 - Click a task to open status, notes, subtasks, day, project, priority, reminder and repeat.
 - Status is To do, Doing or Done. Set Doing from the task's Status field or the right-click menu ("Mark as doing"). Doing tasks get an amber outline, a dot in the checkbox and a "Doing" tag. Ticking a task done ends Doing.

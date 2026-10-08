@@ -67,11 +67,18 @@ export interface Project {
   updatedAt: string
 }
 
-/** One day's values for the unnamed counters in Free time (targets in COUNTER_TARGETS). */
+/** Unnamed counter box in Free time, e.g. 0 / 100. The target is the same every day. */
+export interface Counter {
+  id: string
+  target: number
+  updatedAt: string
+}
+
+/** One day's counter values, keyed by counter id. */
 export interface Tally {
   id: string
   date: string
-  values: number[]
+  values: Record<string, number>
   updatedAt: string
 }
 
@@ -103,6 +110,7 @@ export interface AppData {
   tasks: Task[]
   series: Series[]
   projects: Project[]
+  counters: Counter[]
   tallies: Tally[]
   checkIns: CheckIn[]
   settings: Settings
